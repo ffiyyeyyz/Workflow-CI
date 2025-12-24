@@ -51,13 +51,7 @@ if __name__ == "__main__":
     # Mulai MLflow Run
     with mlflow.start_run() as run:
         
-        # Log parameter dari args
-        mlflow.log_params({
-            "n_estimators": args.n_estimators,
-            "max_depth": args.max_depth,
-            "min_samples_split": args.min_samples_split,
-            "min_samples_leaf": args.min_samples_leaf
-        })
+        mlflow.autolog()
 
         model = RandomForestClassifier(
             n_estimators=args.n_estimators,
@@ -81,20 +75,4 @@ if __name__ == "__main__":
         
         mlflow.log_metrics(metrics)
 
-        # 3. PENTING: Log Signature & Input Example
-        # Ini sangat krusial agar saat di-deploy ke Docker/API, model tahu
-        # format data JSON apa yang diharapkan (schema enforcement).
-        signature = infer_signature(X_train, y_pred)
-        input_example = X_train.iloc[:5]
 
-        mlflow.sklearn.log_model(
-            sk_model=model,
-            artifact_path="model",
-            signature=signature,
-            input_example=input_example
-        )
-
-        print("-" * 30)
-        print(f"Training finished. Run ID: {run.info.run_id}")
-        print(f"Metrics: {metrics}")
-        print("-" * 30)
