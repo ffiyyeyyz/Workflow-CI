@@ -9,39 +9,46 @@ jobs:
   build-train-deploy:
     runs-on: ubuntu-latest
 
-    defaults:
-      run:
-        shell: bash -l {0}
-
     steps:
+    - name: Start job
+      run: echo "Start MLflow CI/CD Pipeline"
+
     - uses: actions/checkout@v4
 
-    - name: Set up Miniconda
-      uses: conda-incubator/setup-miniconda@v3
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v5
       with:
-        auto-update-conda: true
         python-version: "3.10"
-        activate-environment: base
 
-    - name: Verify conda
+    - name: Check environment
       run: |
-        conda --version
         python --version
+        pip --version
 
-    - name: Install MLflow
+    - name: Install dependencies
       run: |
-        pip install --upgrade pip
-        pip install mlflow
+        python -m pip install --upgrade pip
+        pip install mlflow scikit-learn pandas numpy matplotlib
 
-    - name: Run MLflow project (conda)
+    - name: Run MLflow project (local env)
       run: |
         cd MLProject
-        mlflow run . --env-manager=conda
+        mlflow run . --env-manager=local
 
     - name: Debug mlruns
       run: |
         cd MLProject
         find mlruns -maxdepth 3 -type d
+
+    - name: Get latest MLflow run id
+      run: |
+        cd MLProject
+        RUN_ID=$(ls -d mlruns/0/*/ | grep -v models | tail -n 1 | xargs -r basename)
+        if [ -z "$RUN_ID" ]; then
+          echo "❌ No MLflow run found"
+          exit 1
+        fi
+        echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
 
     - name: Upload MLflow artifacts to Google Drive
       uses: adityak74/google-drive-upload-git-action@main
@@ -49,21 +56,11 @@ jobs:
         credentials: ${{ secrets.GDRIVE_CREDENTIALS }}
         filename: MLProject/mlruns
         folderId: ${{ secrets.GDRIVE_FOLDER_ID }}
-        name: "hotel-bookings-prediction_run${{ github.run_id }}"
+        name: "telco_churn_run_${{ github.run_id }}"
         overwrite: "true"
         mirrorDirectoryStructure: "true"
 
-    - name: Get latest MLflow run id
-      run: |
-        cd MLProject
-        RUN_ID=$(ls -d mlruns/0/*/ | grep -v models | tail -n 1 | xargs -r basename)
-        if [ -z "$RUN_ID" ]; then
-          echo "No MLflow run found"
-          exit 1
-        fi
-        echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
-
-    - name: Docker Hub Log in
+    - name: Log in to Docker Hub
       uses: docker/login-action@v3
       with:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -74,11 +71,11 @@ jobs:
         cd MLProject
         mlflow models build-docker \
           -m runs:/$RUN_ID/model \
-          -n ${{ secrets.DOCKERHUB_USERNAME }}/hotel-bookings-prediction
+          -n ${{ secrets.DOCKERHUB_USERNAME }}/telco-churn-mlflow
 
     - name: Push Docker Image
       run: |
-        docker push ${{ secrets.DOCKERHUB_USERNAME }}/hotel-bookings-prediction
+        docker push ${{ secrets.DOCKERHUB_USERNAME }}/telco-churn-mlflow
 
     - name: Complete job
       run: echo "Pipeline finished successfully"
