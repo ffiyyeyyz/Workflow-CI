@@ -57,10 +57,10 @@ jobs:
         overwrite: "true"
         mirrorDirectoryStructure: "true"
 
-    - name: Get latest MLflow id
+    - name: Get latest MLflow run id
       run: |
         cd MLProject
-        RUN_ID=$(ls mlruns/0 | head -n 1)
+        RUN_ID=$(ls -d mlruns/0/*/ | grep -v models | tail -n 1 | xargs basename)
         echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
 
     - name: Docker Hub Log in
