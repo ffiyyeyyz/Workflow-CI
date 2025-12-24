@@ -9,6 +9,10 @@ jobs:
   build-train-deploy:
     runs-on: ubuntu-latest
 
+    defaults:
+      run:
+        shell: bash -l {0}
+
     steps:
     - uses: actions/checkout@v4
 
@@ -18,6 +22,11 @@ jobs:
         auto-update-conda: true
         python-version: "3.10"
         activate-environment: base
+
+    - name: Verify conda
+      run: |
+        conda --version
+        python --version
 
     - name: Install MLflow
       run: |
@@ -34,6 +43,16 @@ jobs:
         cd MLProject
         find mlruns -maxdepth 3 -type d
 
+    - name: Upload MLflow artifacts to Google Drive
+      uses: adityak74/google-drive-upload-git-action@main
+      with:
+        credentials: ${{ secrets.GDRIVE_CREDENTIALS }}
+        filename: MLProject/mlruns
+        folderId: ${{ secrets.GDRIVE_FOLDER_ID }}
+        name: "hotel-bookings-prediction_run${{ github.run_id }}"
+        overwrite: "true"
+        mirrorDirectoryStructure: "true"
+
     - name: Get latest MLflow run id
       run: |
         cd MLProject
@@ -43,16 +62,6 @@ jobs:
           exit 1
         fi
         echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
-
-    - name: Upload to Google Drive
-      uses: adityak74/google-drive-upload-git-action@main
-      with:
-        credentials: ${{ secrets.GDRIVE_CREDENTIALS }}
-        filename: MLProject/mlruns
-        folderId: ${{ secrets.GDRIVE_FOLDER_ID }}
-        name: "hotel-bookings-prediction_run${{ github.run_id }}"
-        overwrite: "true"
-        mirrorDirectoryStructure: "true"
 
     - name: Docker Hub Log in
       uses: docker/login-action@v3
@@ -70,3 +79,6 @@ jobs:
     - name: Push Docker Image
       run: |
         docker push ${{ secrets.DOCKERHUB_USERNAME }}/hotel-bookings-prediction
+
+    - name: Complete job
+      run: echo "Pipeline finished successfully"
