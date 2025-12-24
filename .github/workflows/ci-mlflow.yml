@@ -1,4 +1,4 @@
-name: MLflow CI
+name: MLflow CI Basic
 
 on:
   push:
@@ -6,76 +6,24 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-train-deploy:
+  train:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Start job
-      run: echo "Start MLflow CI/CD Pipeline"
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-    - uses: actions/checkout@v4
-
-    - name: Set up Python 3.10
+    - name: Setup Python
       uses: actions/setup-python@v5
       with:
         python-version: "3.10"
 
-    - name: Check environment
-      run: |
-        python --version
-        pip --version
-
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install mlflow scikit-learn pandas numpy matplotlib
+        pip install mlflow scikit-learn pandas matplotlib
 
-    - name: Run MLflow project (local env)
+    - name: Run training
       run: |
         cd MLProject
         mlflow run . --env-manager=local
-
-    - name: Debug mlruns
-      run: |
-        cd MLProject
-        find mlruns -maxdepth 3 -type d
-
-    - name: Get latest MLflow run id
-      run: |
-        cd MLProject
-        RUN_ID=$(ls -d mlruns/0/*/ | grep -v models | tail -n 1 | xargs -r basename)
-        if [ -z "$RUN_ID" ]; then
-          echo "❌ No MLflow run found"
-          exit 1
-        fi
-        echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
-
-    - name: Upload MLflow artifacts to Google Drive
-      uses: adityak74/google-drive-upload-git-action@main
-      with:
-        credentials: ${{ secrets.GDRIVE_CREDENTIALS }}
-        filename: MLProject/mlruns
-        folderId: ${{ secrets.GDRIVE_FOLDER_ID }}
-        name: "telco_churn_run_${{ github.run_id }}"
-        overwrite: "true"
-        mirrorDirectoryStructure: "true"
-
-    - name: Log in to Docker Hub
-      uses: docker/login-action@v3
-      with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-    - name: Build Docker Model
-      run: |
-        cd MLProject
-        mlflow models build-docker \
-          -m runs:/$RUN_ID/model \
-          -n ${{ secrets.DOCKERHUB_USERNAME }}/telco-churn-mlflow
-
-    - name: Push Docker Image
-      run: |
-        docker push ${{ secrets.DOCKERHUB_USERNAME }}/telco-churn-mlflow
-
-    - name: Complete job
-      run: echo "Pipeline finished successfully"
