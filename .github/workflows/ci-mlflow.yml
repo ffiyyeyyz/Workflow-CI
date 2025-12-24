@@ -34,6 +34,16 @@ jobs:
         name: mlflow-artifacts
         path: MLProject/mlruns
 
+    - name: Upload to Google Drive
+      uses: adityak74/google-drive-upload-git-action@main
+      with:
+        credentials: ${{ secrets.GDRIVE_CREDENTIALS }}
+        filename: MLProject/mlruns
+        folderId: ${{ secrets.GDRIVE_FOLDER_ID }}
+        name: "telco_churn_run_${{ github.run_id }}"
+        overwrite: "true"
+        mirrorDirectoryStructure: "true"
+
     - name: Build Docker Image with MLflow
       run: |
         cd MLProject
