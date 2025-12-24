@@ -27,3 +27,9 @@ jobs:
       run: |
         cd MLProject
         mlflow run . --env-manager=local
+
+    - name: Upload MLflow Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: mlflow-artifacts
+        path: MLProject/mlruns
